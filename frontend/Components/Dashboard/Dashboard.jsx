@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Card from "../ui/card";
+import { Link } from 'react-router-dom';
 import {
   Wallet,
   BotIcon as Robot,
@@ -140,6 +141,12 @@ export function Dashboard() {
           </div>
         </div>
       </div>
+      <Link to="/commands">
+  <button className="px-6 py-3 m-10  bg-teal-200 text-teal-800 font-medium hover:bg-teal-100 transition-colors flex items-center justify-center">
+    Launch commands in a click !
+   
+  </button>
+</Link>
 
       {/* Main Layout */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
