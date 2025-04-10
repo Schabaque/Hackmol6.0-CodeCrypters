@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Card from "../ui/card";
-import { Link } from 'react-router-dom';
+import { Link } from "react-router-dom";
 import {
   Wallet,
   BotIcon as Robot,
@@ -21,6 +21,10 @@ import {
 } from "recharts";
 
 export function Dashboard() {
+  const [showInput, setShowInput] = useState(false);
+  const [walletAddress, setWalletAddress] = useState("");
+  const [recipientName, setRecipientName] = useState("");
+
   const { address, isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
   const publicClient = usePublicClient();
@@ -29,6 +33,7 @@ export function Dashboard() {
   const [chartData, setChartData] = useState([]);
   const [usdRate, setUsdRate] = useState(null);
   const [marketData, setMarketData] = useState({});
+  const [recipients, setRecipients] = useState({});
 
   const fetchMarketData = async () => {
     try {
@@ -87,21 +92,62 @@ export function Dashboard() {
 
   const sendWalletAddressToServer = async (walletAddress) => {
     try {
-      const response = await fetch('http://localhost:5000/api/connect-wallet', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ walletAddress }),
+      const response = await fetch("http://localhost:5000/api/connect-wallet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ walletAddress })
       });
 
       const data = await response.json();
-      console.log('Server connection response:', data);
+      console.log("Server connection response:", data);
     } catch (error) {
-      console.error('Error connecting wallet to server:', error);
+      console.error("Error connecting wallet to server:", error);
+    }
+  };
+
+  const fetchRecipients = async () => {
+    try {
+      const response = await fetch("http://localhost:5000/api/get-recipients");
+      const data = await response.json();
+      setRecipients(data);
+    } catch (error) {
+      console.error("Failed to fetch recipients:", error);
+    }
+  };
+
+  const handleAddRecipient = async () => {
+    if (!recipientName || !walletAddress) {
+      alert("Please fill out both fields.");
+      return;
+    }
+
+    try {
+      const response = await fetch("http://localhost:5000/api/add-recipient", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [recipientName]: walletAddress }) // key-value pair
+      });
+
+      const data = await response.json();
+      console.log("Recipient added:", data);
+      alert("Recipient successfully saved!");
+
+      // Reset fields
+      setRecipientName("");
+      setWalletAddress("");
+      setShowInput(false);
+
+      // Refresh list
+      fetchRecipients();
+    } catch (error) {
+      console.error("Error adding recipient:", error);
+      alert("Failed to add recipient.");
     }
   };
 
   useEffect(() => {
     fetchMarketData();
+    fetchRecipients();
     const interval = setInterval(fetchMarketData, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
@@ -112,8 +158,7 @@ export function Dashboard() {
     }
   }, [isConnected, address, usdRate, publicClient]);
 
-  const shortenAddress = (addr) =>
-    `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  const shortenAddress = (addr) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 
   const formatChange = (change) => {
     const fixed = change?.toFixed(2);
@@ -141,44 +186,81 @@ export function Dashboard() {
           </div>
         </div>
       </div>
+
       <Link to="/commands">
-  <button className="px-6 py-3 m-10  bg-teal-200 text-teal-800 font-medium hover:bg-teal-100 transition-colors flex items-center justify-center">
-    Launch commands in a click !
-   
-  </button>
-</Link>
+        <button className="px-6 py-3 m-10 bg-teal-200 text-teal-800 font-medium hover:bg-teal-100 transition-colors flex items-center justify-center">
+          Launch commands in a click !
+        </button>
+      </Link>
 
       {/* Main Layout */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {walletData && (
-          <Card className="bg-[#04382C] border border-[#036249] p-4 rounded-xl shadow-md">
-            <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
-              <Wallet className="h-5 w-5 text-[#2CC295]" />
-              Wallet #1
-            </h3>
-            <p className="text-sm">
-              Address:{" "}
-              <span className="font-bold text-[#2CC295]">
-                {shortenAddress(walletData.address)}
-              </span>
-            </p>
-            <p className="text-sm">
-              Balance:{" "}
-              <span className="font-bold text-[#2CC295]">
-                {parseFloat(walletData.balance).toFixed(4)} ETH
-              </span>
-            </p>
-            {walletData.usdValue && (
-              <p className="text-sm">
-                ≈{" "}
-                <span className="font-bold text-[#2CC295]">
-                  ${walletData.usdValue} USD
-                </span>
-              </p>
-            )}
-          </Card>
-        )}
 
+        {/* Add recipient card */}
+        <Card className="bg-[#04382C] border border-[#036249] p-4 rounded-xl shadow-md col-span-1 md:col-span-2">
+          <button
+            onClick={() => setShowInput(true)}
+            className="px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 transition-colors"
+          >
+            Add a recipient
+          </button>
+
+          {showInput && (
+            <div className="mt-4 space-y-4">
+              <div>
+                <label htmlFor="recipientName" className="block text-teal-900 font-medium mb-2">
+                  Recipient Name
+                </label>
+                <input
+                  id="recipientName"
+                  type="text"
+                  value={recipientName}
+                  onChange={(e) => setRecipientName(e.target.value)}
+                  placeholder="e.g. Alice"
+                  className="w-full px-4 py-2 border border-teal-300 rounded focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="wallet" className="block text-teal-900 font-medium mb-2">
+                  Wallet Address (Hash)
+                </label>
+                <input
+                  id="wallet"
+                  type="text"
+                  value={walletAddress}
+                  onChange={(e) => setWalletAddress(e.target.value)}
+                  placeholder="0x..."
+                  className="w-full px-4 py-2 border border-teal-300 rounded focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+
+              <button
+                onClick={handleAddRecipient}
+                className="px-4 py-2 bg-[#2CC295] text-white rounded hover:bg-[#28b187] transition-colors"
+              >
+                Submit Recipient
+              </button>
+            </div>
+          )}
+
+          {/* Render Recipients */}
+          {recipients && Object.keys(recipients).length > 0 && (
+            <div className="mt-6">
+              <h4 className="text-teal-400 font-semibold mb-2">Saved Recipients</h4>
+              <ul className="space-y-2">
+                {Object.entries(recipients).map(([name, addr]) => (
+                  <li key={name} className="flex justify-between bg-[#055245] p-2 rounded">
+                    <span className="font-medium text-white">{name}</span>
+                    <span className="text-teal-200 font-mono">{shortenAddress(addr)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </Card>
+
+        {/* Portfolio Performance Chart */}
         <Card className="bg-[#04382C] border border-[#036249] p-4 rounded-xl shadow-md col-span-1 md:col-span-2">
           <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
             <LineChart className="h-5 w-5 text-[#2CC295]" />

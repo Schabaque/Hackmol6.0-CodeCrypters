@@ -11,26 +11,26 @@ import {
 } from '@rainbow-me/rainbowkit';
 
 import { WagmiConfig } from 'wagmi';
-import { mainnet } from 'wagmi/chains';
+import { sepolia } from 'wagmi/chains';
 import { http } from 'viem';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ✅ WalletConnect Project ID
 const projectId = '21abe9266852ecc1be188bb52b64fd17';
 
-// ✅ Correct metadata to prevent WalletConnect warnings
+// ✅ RainbowKit + Wagmi + Viem Config
 const config = getDefaultConfig({
   appName: 'My Dapp',
   projectId,
-  chains: [mainnet],
+  chains: [sepolia],
   transports: {
-    [mainnet.id]: http('https://mainnet.infura.io/v3/de33a7c80a8440c1af194b088cee7714'),
+    [sepolia.id]: http('https://rpc.sepolia.org'),
   },
   ssr: false,
   metadata: {
     name: 'My Dapp',
     description: 'A cool dapp using WalletConnect + RainbowKit',
-    url: 'http://localhost:5173', // ✅ Make sure this matches your dev URL
+    url: 'http://localhost:5173',
     icons: ['https://walletconnect.com/walletconnect-logo.png'],
   },
 });

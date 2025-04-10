@@ -3,136 +3,267 @@ const express = require('express');
 const cors = require('cors');
 const { Wallet, ethers } = require('ethers');
 const { Anthropic } = require('@anthropic-ai/sdk');
+const mongoose = require('mongoose');
+
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
+.then(() => console.log('✅ Connected to MongoDB'))
+.catch(err => console.error('❌ MongoDB connection error:', err));
 
 const app = express();
-app.use(cors());
+// Use CORS with specific origin instead of the default configuration
+app.use(cors({
+  origin: 'http://localhost:5173', // Replace with your frontend URL
+  credentials: true
+}));
 app.use(express.json());
+
+// Log environment variables status (without revealing values)
+console.log('Environment check:');
+console.log('- ANTHROPIC_API_KEY set:', !!process.env.ANTHROPIC_API_KEY);
+console.log('- SEPOLIA_RPC_URL set:', !!process.env.SEPOLIA_RPC_URL);
+console.log('- SERVER_PRIVATE_KEY set:', !!process.env.SERVER_PRIVATE_KEY);
 
 // Initialize provider and wallet
 const provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
 const wallet = new Wallet(process.env.SERVER_PRIVATE_KEY, provider);
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+// Log wallet address for verification
+console.log('Server wallet address:', wallet.address);
+
 // Predefined mapping of names to wallet addresses
 const userWallets = {
   john: '0x282ABaD9a2B7DE48b1A986cbF11f62032f5c1041',
-  alice: '0x913E7fa01ed1bE95f6D5404bbA66d2265E4406B4',
+  alice: '0xRecipientWalletAddressForAlice', // Replace with actual address
 };
 
-// Function to get ETH balance
-async function getETHBalance(address) {
-  const balance = await provider.getBalance(address);
-  const eth = ethers.formatEther(balance);
-  return `${eth} Sepolia ETH`;
+// Function to get ETH balance of any address (defaults to server wallet)
+async function getETHBalance(address = wallet.address) {
+  try {
+    const balance = await provider.getBalance(address);
+    const eth = ethers.formatEther(balance);
+    return `${eth} Sepolia ETH`;
+  } catch (error) {
+    console.error('Error fetching balance:', error);
+    throw new Error(`Failed to get balance: ${error.message}`);
+  }
 }
 
 // Function to interpret commands using Claude AI
 async function interpretCommandWithClaude(command) {
-  const prompt = `You are a blockchain assistant. Interpret this user command and return a JSON object with the action.
+  try {
+    console.log('Interpreting command:', command);
+    
+    const prompt = `You are a blockchain assistant. Interpret this user command and return a JSON object with the action.
 
 Command: "${command}"
 
-Possible actions:
-- GET_BALANCE (when user asks to check balance)
-- SEND_ETH (when user wants to send ETH to someone)
-- HELP (when user asks for help)
-- STATUS (when user asks for system status)
-- UNKNOWN (when command isn't recognized)
-
-For GET_BALANCE, return:
+Return JSON like one of these:
+{ "action": "SEND_ETH", "recipient": "john", "amount": "0.011" }
 { "action": "GET_BALANCE" }
-
-For SEND_ETH, return:
-{ "action": "SEND_ETH", "recipient": "john", "amount": "0.1" }
-
-For HELP, return:
 { "action": "HELP" }
-
-For STATUS, return:
 { "action": "STATUS" }
+{ "action": "LIST" }
 
 If unknown, return:
-{ "action": "UNKNOWN" }
+{ "action": "UNKNOWN" }`;
 
-Only respond with valid JSON.`;
+    const msg = await anthropic.messages.create({
+      model: 'claude-3-haiku-20240307',
+      max_tokens: 50,
+      temperature: 0,
+      messages: [{ role: 'user', content: prompt }],
+    });
 
-  const msg = await anthropic.messages.create({
-    model: 'claude-3-haiku-20240307',
-    max_tokens: 100,
-    temperature: 0,
-    messages: [{ role: 'user', content: prompt }],
-  });
-
-  const content = msg.content[0]?.text;
-  try {
-    return JSON.parse(content);
-  } catch (e) {
+    const content = msg.content[0]?.text;
+    console.log('Claude response:', content);
+    
+    try {
+      return JSON.parse(content);
+    } catch (e) {
+      console.error('Error parsing Claude response:', e);
+      return { action: "UNKNOWN" };
+    }
+  } catch (error) {
+    console.error('Error calling Claude API:', error);
     return { action: "UNKNOWN" };
   }
 }
 
+// Function to send ETH
+async function sendETH(recipient, amount) {
+  try {
+    console.log(`Sending ${amount} ETH to ${recipient}`);
+    
+    // Validate inputs
+    if (!recipient || !amount) {
+      throw new Error('Recipient and amount are required');
+    }
+    
+    // Check server wallet balance
+    const balanceWei = await provider.getBalance(wallet.address);
+    const amountWei = ethers.parseEther(amount);
+    
+    if (balanceWei < amountWei) {
+      throw new Error(`Insufficient balance. Server has ${ethers.formatEther(balanceWei)} ETH but tried to send ${amount} ETH`);
+    }
+    
+    // Send transaction
+    const tx = await wallet.sendTransaction({
+      to: recipient,
+      value: amountWei,
+      gasLimit: 21000 // Standard gas limit for ETH transfers
+    });
+    
+    console.log('Transaction sent:', tx.hash);
+    return tx;
+  } catch (error) {
+    console.error('Error in sendETH function:', error);
+    throw error;
+  }
+}
+
+// Simple command handling without AI
+function handleSimpleCommands(command) {
+  const lowerCommand = command.toLowerCase().trim();
+  
+  if (lowerCommand === 'help') {
+    return { 
+      result: "Available commands:\n- help: Display available commands\n- status: Check system status\n- list: List available resources\n- balance: Check your ETH balance\n- send [amount] ETH to [recipient]: Send ETH to a recipient" 
+    };
+  }
+  
+  if (lowerCommand === 'status') {
+    return { 
+      result: `System Status: Online\nNetwork: Sepolia Testnet\nWallet: ${wallet.address}` 
+    };
+  }
+  
+  if (lowerCommand === 'list') {
+    return { 
+      result: "Available resources:\n- ETH balance\n- Known recipients: " + Object.keys(userWallets).join(', ')
+    };
+  }
+  
+  return null; // Not a simple command
+}
+
 // API endpoint to process commands
 app.post('/api/process-command', async (req, res) => {
-  const { command, userAddress } = req.body;
+  console.log('Received command request:', req.body);
+  const { command } = req.body;
 
-  if (!userAddress) {
-    return res.status(400).json({ 
-      result: 'Please connect your wallet to use this feature.' 
-    });
+  if (!command) {
+    return res.status(400).json({ result: 'Command is required' });
   }
 
   try {
-    const { action, recipient, amount } = await interpretCommandWithClaude(command);
-
-    if (action === 'GET_BALANCE') {
-      const balance = await getETHBalance(userAddress);
+    // First try simple commands that don't need AI
+    const simpleResult = handleSimpleCommands(command);
+    if (simpleResult) {
+      return res.json(simpleResult);
+    }
+    
+    // For balance command
+    if (command.toLowerCase().includes('balance')) {
+      const balance = await getETHBalance();
       return res.json({ result: `Your Sepolia ETH balance is: ${balance}` });
     }
+    
+    // For more complex commands, use Claude
+    const interpretation = await interpretCommandWithClaude(command);
+    console.log('Command interpretation:', interpretation);
+    
+    const { action, recipient, amount } = interpretation;
+
+    if (action === 'GET_BALANCE') {
+      const balance = await getETHBalance();
+      return res.json({ result: `Your Sepolia ETH balance is: ${balance}` });
+    }
+
     if (action === 'SEND_ETH') {
       if (!recipient || !amount) {
         return res.status(400).json({ result: 'Recipient or amount is missing in the command.' });
       }
-    
+
       const recipientAddress = userWallets[recipient.toLowerCase()];
       if (!recipientAddress) {
-        return res.status(400).json({ result: `Recipient "${recipient}" not found.` });
+        return res.status(400).json({ result: `Recipient "${recipient}" not found. Available recipients: ${Object.keys(userWallets).join(', ')}` });
       }
-    
-      return res.json({
-        action: "SEND_ETH",
-        result: `Preparing to send ${amount} Sepolia ETH to ${recipient}`,
-        recipientAddress,
-        amount,
-        recipient
-      });
-    }
-    
-    if (action === 'HELP') {
-      return res.json({
-        result: "Available commands:\n- check balance\n- send [amount] ETH to [name]\n- help\n- status\n\nExample: 'send 0.1 ETH to john'"
-      });
+
+      try {
+        const tx = await sendETH(recipientAddress, amount);
+        
+        return res.json({
+          result: `Successfully sent ${amount} Sepolia ETH to ${recipient} (${recipientAddress}).\nTransaction hash: ${tx.hash}`
+        });
+      } catch (error) {
+        console.error('Error sending transaction:', error);
+        return res.status(500).json({ result: `Failed to send transaction: ${error.message}` });
+      }
     }
 
-    if (action === 'STATUS') {
-      return res.json({
-        result: `System Status: Online\nNetwork: Sepolia\nServer Wallet: ${wallet.address}`
-      });
-    }
-
-    return res.json({ result: `Sorry, I couldn't understand that command. Type 'help' for available commands.` });
+    return res.json({ result: "Sorry, I couldn't understand that command. Type 'help' for available commands." });
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ 
-      result: `Error processing command: ${err.message}` 
-    });
+    console.error('Server error:', err);
+    return res.status(500).json({ message: `Error processing command: ${err.message}` });
   }
 });
-// Add to your existing Express app
-app.get('/api/resolve-recipient', (req, res) => {
-  const { name } = req.query;
-  const address = userWallets[name?.toLowerCase()];
-  if (!address) return res.status(404).json({ error: 'Recipient not found' });
-  res.json({ address });
+const Recipient = require('./models/Recipient');
+
+app.post('/api/add-recipient', async (req, res) => {
+  const payload = req.body;
+
+  const name = Object.keys(payload)[0];
+  const walletAddress = payload[name];
+
+  if (!name || !walletAddress) {
+    return res.status(400).json({ message: 'Name and wallet address are required' });
+  }
+
+  try {
+    // Save to MongoDB
+    const existing = await Recipient.findOne({ name });
+    if (existing) {
+      existing.walletAddress = walletAddress;
+      await existing.save();
+      return res.json({ message: `Recipient '${name}' updated successfully.` });
+    } else {
+      const newRecipient = new Recipient({ name, walletAddress });
+      await newRecipient.save();
+      return res.json({ message: `Recipient '${name}' added successfully.` });
+    }
+  } catch (error) {
+    console.error('Error saving recipient:', error);
+    res.status(500).json({ message: 'Failed to save recipient.' });
+  }
+});
+app.get('/api/recipients', async (req, res) => {
+  try {
+    // Check if MongoDB is connected
+    if (mongoose.connection.readyState !== 1) {
+      console.error('MongoDB not connected');
+      return res.status(500).json({ message: 'Database connection error' });
+    }
+    
+    const recipients = await Recipient.find();
+    console.log('Sending recipients to frontend:', recipients);
+    
+    // Set proper headers
+    res.setHeader('Content-Type', 'application/json');
+    return res.json(recipients);
+  } catch (error) {
+    console.error('Error fetching recipients:', error);
+    return res.status(500).json({ message: 'Failed to fetch recipients', error: error.message });
+  }
+});
+  
+// Add a simple test endpoint for troubleshooting
+app.get('/api/test', (req, res) => {
+  res.json({ result: 'API is working' });
 });
 
 const PORT = process.env.PORT || 5000;

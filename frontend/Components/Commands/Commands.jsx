@@ -9,6 +9,8 @@ const Commands = () => {
   const [response, setResponse] = useState('');
   const [provider, setProvider] = useState(null);
   const [history, setHistory] = useState([]);
+  const [recipients, setRecipients] = useState({});
+  const [recipientsLoaded, setRecipientsLoaded] = useState(false);
 
   useEffect(() => {
     if (window.ethereum) {
@@ -23,44 +25,43 @@ const Commands = () => {
     }
   }, [address, provider]);
 
-  const connectSepolia = async () => {
-    try {
-      await window.ethereum.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: '0xaa36a7' }],
-      });
-    } catch (switchError) {
-      if (switchError.code === 4902) {
-        try {
-          await window.ethereum.request({
-            method: 'wallet_addEthereumChain',
-            params: [{
-              chainId: '0xaa36a7',
-              chainName: 'Sepolia Test Network',
-              nativeCurrency: {
-                name: 'SepoliaETH',
-                symbol: 'ETH',
-                decimals: 18,
-              },
-              rpcUrls: ['https://rpc.sepolia.org'],
-              blockExplorerUrls: ['https://sepolia.etherscan.io'],
-            }],
-          });
-        } catch (addError) {
-          console.error('Failed to add Sepolia network:', addError);
-          throw addError;
+  useEffect(() => {
+    const fetchRecipients = async () => {
+      try {
+        // Use the correct API URL - adjust this to match your backend server address
+        const API_BASE_URL = 'http://localhost:5000'; // Change this to your actual backend URL
+        const res = await fetch(`${API_BASE_URL}/api/recipients`);
+        
+        if (!res.ok) {
+          throw new Error(`Failed to fetch: ${res.status} ${res.statusText}`);
         }
-      } else {
-        console.error('Failed to switch to Sepolia:', switchError);
-        throw switchError;
+        
+        const data = await res.json();
+        console.log('Raw recipients data:', data);
+
+        // Convert list to name:address map
+        const recipientMap = {};
+        data.forEach(recipient => {
+          recipientMap[recipient.name.toLowerCase()] = recipient.walletAddress;
+        });
+
+        setRecipients(recipientMap);
+        console.log('Processed recipients:', recipientMap);
+      } catch (err) {
+        console.error('Failed to load recipients:', err);
       }
-    }
-  };
+    };
+
+    fetchRecipients();
+  }, []);
+
+ 
+  
 
   const getBalance = async (account) => {
     if (!provider) return;
     try {
-      await connectSepolia();
+     // await connectSepolia();
       const balanceWei = await provider.getBalance(account);
       const balanceEth = ethers.formatEther(balanceWei);
       setBalance(parseFloat(balanceEth).toFixed(4));
@@ -77,7 +78,7 @@ const Commands = () => {
     }
 
     try {
-      await connectSepolia();
+      //await connectSepolia();
 
       const tx = await window.ethereum.request({
         method: 'eth_sendTransaction',
@@ -97,43 +98,54 @@ const Commands = () => {
   };
 
   const parseCommand = async (cmd) => {
-    try {
-      cmd = cmd.toLowerCase().trim();
-      
-      // Check balance command
-      if (cmd.includes('balance') || cmd.includes('check my balance')) {
-        const bal = await getBalance(address);
-        return `Your balance is ${bal} ETH`;
+    const sendMatch = cmd.match(/send\s+([0-9.]+)\s*eth\s+to\s+(.+)/i);
+
+    if (sendMatch) {
+      const amount = sendMatch[1];
+      let recipientName = sendMatch[2].toLowerCase().trim();
+      let toAddress;
+
+      console.log('Parsed command:', { amount, recipientName });
+      console.log('Available recipients:', recipients);
+
+      if (recipientName.startsWith('0x') && recipientName.length === 42) {
+        toAddress = recipientName;
+      } else if (recipients[recipientName]) {
+        toAddress = recipients[recipientName];
+        console.log('Found recipient address:', toAddress);
+      } else {
+        return `❌ Error: Unknown recipient "${recipientName}". Available recipients: ${Object.keys(recipients).join(', ')}`;
       }
-      
-      // Send ETH command
-      const sendMatch = cmd.match(/send\s+([0-9.]+)\s+eth\s+to\s+(0x[a-fA-F0-9]{40}|[a-zA-Z]+)/i);
-      if (sendMatch) {
-        const amount = sendMatch[1];
-        let toAddress = sendMatch[2];
-        
-        // If recipient is a name, you could map it to an address here
-        // For now, we'll assume it's a valid address
-        if (!toAddress.startsWith('0x')) {
-          return `Error: Recipient must be a valid Ethereum address starting with 0x`;
-        }
-        
+
+      try {
         const txHash = await sendTransaction(toAddress, amount);
-        return `Success! Sent ${amount} ETH to ${toAddress.slice(0, 6)}...${toAddress.slice(-4)}\nTX Hash: ${txHash}`;
+        return `✅ Success! Sent ${amount} ETH to ${recipientName} (${toAddress.slice(0, 6)}...${toAddress.slice(-4)})\n🔗 TX Hash: ${txHash}`;
+      } catch (err) {
+        return `❌ Transaction failed: ${err.message}`;
       }
-      
-      // Default response for unknown commands
-      return `I didn't understand that command. Try:\n- "Check my balance"\n- "Send 0.02 ETH to 0x123..."`;
-      
-    } catch (error) {
-      return `Error: ${error.message}`;
     }
+
+    if (cmd.toLowerCase().includes("check") && cmd.toLowerCase().includes("balance")) {
+      const bal = await getBalance(address);
+      return `💰 Your current balance: ${bal} ETH`;
+    }
+
+    if (cmd.toLowerCase() === "list recipients") {
+      if (Object.keys(recipients).length === 0) {
+        return "No recipients found. Add some first!";
+      }
+      return `Available recipients:\n${Object.keys(recipients).map(name =>
+        `- ${name}: ${recipients[name].slice(0, 6)}...${recipients[name].slice(-4)}`
+      ).join('\n')}`;
+    }
+
+    return `🤖 Unknown command: "${cmd}". Try "send 0.01 eth to alice", "check my balance", or "list recipients"`;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!command.trim()) return;
-    
+
     const result = await parseCommand(command);
     setResponse(result);
     setHistory(prev => [...prev, { command, response: result }]);
@@ -171,7 +183,7 @@ const Commands = () => {
               <span className="text-[#2CC295] mr-2">$</span>
               <input
                 type="text"
-                placeholder="Type a command (e.g., 'send 0.02 eth to 0x123...' or 'check my balance')"
+                placeholder="Type a command (e.g., 'send 0.02 eth to yash')"
                 value={command}
                 onChange={(e) => setCommand(e.target.value)}
                 className="flex-1 bg-[#032221] border border-[#036249] p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2CC295] text-[#F1F7F6]"
