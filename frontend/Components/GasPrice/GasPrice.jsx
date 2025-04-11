@@ -49,16 +49,16 @@ const GasPrice = () => {
 
   const renderTrendIcon = (trend) => {
     return trend === "rising" ? (
-      <TrendingUp className="text-green-600" />
+      <TrendingUp className="text-green-400" />
     ) : (
-      <TrendingDown className="text-red-600" />
+      <TrendingDown className="text-red-400" />
     );
   };
 
   return (
-    <div className="p-6 grid md:grid-cols-2 gap-6">
+    <div className="p-6 grid md:grid-cols-2 gap-6 bg-teal-50 rounded-xl">
       {/* ETH Signal */}
-      <div className="bg-purple-700 text-white rounded-xl p-6 shadow-lg">
+      <div className="bg-gradient-to-br from-teal-600 to-teal-800 text-white rounded-xl p-6 shadow-lg border border-teal-200">
         <h2 className="text-2xl font-bold mb-2">📈 ETH Trading Signal</h2>
         {ethData ? (
           <>
@@ -67,7 +67,7 @@ const GasPrice = () => {
             </p>
             <p className="mt-2 text-white/90">
               Confidence Level:{" "}
-              <span className="font-mono bg-white text-indigo-700 px-2 py-1 rounded">
+              <span className="font-mono bg-teal-100 text-teal-800 px-2 py-1 rounded">
                 {(ethData.confidence * 100).toFixed(2)}%
               </span>
             </p>
@@ -83,7 +83,7 @@ const GasPrice = () => {
       </div>
 
       {/* Gas Price Info */}
-      <div className="bg-orange-500 text-white rounded-xl p-6 shadow-lg">
+      <div className="bg-gradient-to-br from-cyan-500 to-teal-600 text-white rounded-xl p-6 shadow-lg border border-teal-200">
         <h2 className="text-2xl font-bold mb-2">⛽ Ethereum Gas Insights</h2>
         {gasData ? (
           <>
@@ -93,14 +93,14 @@ const GasPrice = () => {
             </p>
             <p className="mt-2">
               Avg Future Price:{" "}
-              <span className="font-mono bg-white text-orange-700 px-2 py-1 rounded">
+              <span className="font-mono bg-teal-100 text-teal-800 px-2 py-1 rounded">
                 {gasData.average_future_price.toFixed(3)} Gwei
               </span>
             </p>
             <p className="mt-4 italic">
               {gasData.trend === "rising"
                 ? "Prepare for congestion—gas fees may surge soon. ⏫"
-                : "It’s a good time to execute transactions. Smooth ride ahead! 🛣️"}
+                : "It's a good time to execute transactions. Smooth ride ahead! 🛣️"}
             </p>
           </>
         ) : (

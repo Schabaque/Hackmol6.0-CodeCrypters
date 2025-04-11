@@ -99,48 +99,55 @@ const Commands = () => {
 
   const parseCommand = async (cmd) => {
     const sendMatch = cmd.match(/send\s+([0-9.]+)\s*eth\s+to\s+(.+)/i);
-
+  
     if (sendMatch) {
       const amount = sendMatch[1];
-      let recipientName = sendMatch[2].toLowerCase().trim();
+      const recipientQuery = sendMatch[2].toLowerCase().trim();
       let toAddress;
-
-      console.log('Parsed command:', { amount, recipientName });
-      console.log('Available recipients:', recipients);
-
-      if (recipientName.startsWith('0x') && recipientName.length === 42) {
-        toAddress = recipientName;
-      } else if (recipients[recipientName]) {
-        toAddress = recipients[recipientName];
-        console.log('Found recipient address:', toAddress);
-      } else {
-        return `❌ Error: Unknown recipient "${recipientName}". Available recipients: ${Object.keys(recipients).join(', ')}`;
-      }
-
+  
+      console.log('Parsed command:', { amount, recipientQuery });
+  
       try {
+        // If the user typed a wallet address directly
+        if (recipientQuery.startsWith('0x') && recipientQuery.length === 42) {
+          toAddress = recipientQuery;
+        } else {
+          // Otherwise, use the preloaded recipients map
+          toAddress = recipients[recipientQuery];
+          if (!toAddress) {
+            throw new Error(`Recipient "${recipientQuery}" not found.`);
+          }
+        }
+  
         const txHash = await sendTransaction(toAddress, amount);
-        return `✅ Success! Sent ${amount} ETH to ${recipientName} (${toAddress.slice(0, 6)}...${toAddress.slice(-4)})\n🔗 TX Hash: ${txHash}`;
+        return `✅ Success! Sent ${amount} ETH to ${recipientQuery} (${toAddress.slice(0, 6)}...${toAddress.slice(-4)})\n🔗 TX Hash: ${txHash}`;
       } catch (err) {
         return `❌ Transaction failed: ${err.message}`;
       }
     }
-
+  
     if (cmd.toLowerCase().includes("check") && cmd.toLowerCase().includes("balance")) {
       const bal = await getBalance(address);
       return `💰 Your current balance: ${bal} ETH`;
     }
-
+  
     if (cmd.toLowerCase() === "list recipients") {
-      if (Object.keys(recipients).length === 0) {
-        return "No recipients found. Add some first!";
+      try {
+        const entries = Object.entries(recipients);
+        if (entries.length === 0) return "No recipients found.";
+  
+        return `Available recipients:\n${entries.map(([name, addr]) =>
+          `- ${name}: ${addr.slice(0, 6)}...${addr.slice(-4)}`
+        ).join('\n')}`;
+      } catch (err) {
+        return `❌ Failed to list recipients: ${err.message}`;
       }
-      return `Available recipients:\n${Object.keys(recipients).map(name =>
-        `- ${name}: ${recipients[name].slice(0, 6)}...${recipients[name].slice(-4)}`
-      ).join('\n')}`;
     }
-
-    return `🤖 Unknown command: "${cmd}". Try "send 0.01 eth to alice", "check my balance", or "list recipients"`;
+  
+    return `🤖 Unknown command: "${cmd}". Try "send 0.01 eth to yash", "check my balance", or "list recipients"`;
   };
+  
+  
 
   const handleSubmit = async (e) => {
     e.preventDefault();

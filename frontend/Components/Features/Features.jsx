@@ -27,7 +27,7 @@ export default function Features() {
             <div className="bg-teal-200 p-3 rounded-full w-14 h-14 flex items-center justify-center mb-6">
               <Shield className="h-7 w-7 text-teal-800" />
             </div>
-            <h3 className="text-xl font-bold mb-3 text-gray-900">Begginner friendly!</h3>
+            <h3 className="text-xl font-bold mb-3 text-gray-900">Beginner friendly!</h3>
             <p className="text-gray-600">
               Your assets are protected with multi-signature wallets, cold storage, and advanced encryption.
             </p>

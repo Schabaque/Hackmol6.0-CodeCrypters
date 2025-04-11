@@ -16,10 +16,10 @@ export default function Navbar() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo + Brand */}
-          <div className="flex items-center space-x-2">
+          <Link to="/" className="flex items-center space-x-2 cursor-pointer">
             <FaEthereum className="text-yellow-300 text-2xl" />
             <span className="font-bold text-xl tracking-wide">EthAnnex</span>
-          </div>
+          </Link>
             {/* Desktop Nav */}
             <nav className="hidden md:flex space-x-8 text-yellow-200">
               <a href="#about" className="hover:text-white transition-colors">About Us</a>

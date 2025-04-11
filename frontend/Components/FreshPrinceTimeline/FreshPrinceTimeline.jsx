@@ -6,13 +6,14 @@ import { motion, useScroll, useTransform, useSpring, useAnimation } from "framer
 const steps = [
   {
     id: 1,
-    text: "New Here? Let's create a Wallet",
-    hoverText: "Don't worry, simpler than setting up GPay!",
+    text: <a href="https://metamask.io/download" target="_blank" rel="noopener noreferrer" className="hover:underline">New Here? Let's create a Wallet</a>,
+    hoverText: "Don't worry, simpler than setting up GPay!",    
     icon: "wallet",
     side: "left",
   },
   {
     id: 2,
+    
     text: "Just connect your wallet to the app!",
     hoverText: "One-click connection to start your journey",
     icon: "connect",
