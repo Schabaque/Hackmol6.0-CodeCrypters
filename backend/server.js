@@ -5,12 +5,7 @@ const { Wallet, ethers } = require('ethers');
 const { Anthropic } = require('@anthropic-ai/sdk');
 const mongoose = require('mongoose');
 
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
-.then(() => console.log('✅ Connected to MongoDB'))
-.catch(err => console.error('❌ MongoDB connection error:', err));
+
 
 const app = express();
 // Use CORS with specific origin instead of the default configuration
@@ -214,59 +209,24 @@ app.post('/api/process-command', async (req, res) => {
 });
 const Recipient = require('./models/Recipient');
 
-app.post('/api/add-recipient', async (req, res) => {
-  const payload = req.body;
 
-  const name = Object.keys(payload)[0];
-  const walletAddress = payload[name];
-
-  if (!name || !walletAddress) {
-    return res.status(400).json({ message: 'Name and wallet address are required' });
-  }
-
-  try {
-    // Save to MongoDB
-    const existing = await Recipient.findOne({ name });
-    if (existing) {
-      existing.walletAddress = walletAddress;
-      await existing.save();
-      return res.json({ message: `Recipient '${name}' updated successfully.` });
-    } else {
-      const newRecipient = new Recipient({ name, walletAddress });
-      await newRecipient.save();
-      return res.json({ message: `Recipient '${name}' added successfully.` });
-    }
-  } catch (error) {
-    console.error('Error saving recipient:', error);
-    res.status(500).json({ message: 'Failed to save recipient.' });
-  }
-});
-app.get('/api/recipients', async (req, res) => {
-  try {
-    // Check if MongoDB is connected
-    if (mongoose.connection.readyState !== 1) {
-      console.error('MongoDB not connected');
-      return res.status(500).json({ message: 'Database connection error' });
-    }
-    
-    const recipients = await Recipient.find();
-    console.log('Sending recipients to frontend:', recipients);
-    
-    // Set proper headers
-    res.setHeader('Content-Type', 'application/json');
-    return res.json(recipients);
-  } catch (error) {
-    console.error('Error fetching recipients:', error);
-    return res.status(500).json({ message: 'Failed to fetch recipients', error: error.message });
-  }
-});
-  
 // Add a simple test endpoint for troubleshooting
 app.get('/api/test', (req, res) => {
   res.json({ result: 'API is working' });
 });
 
+
+// Serve static assets if in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, 'client/build')));
+  
+  app.get('*', (req, res) => {
+    res.sendFile(path.resolve(__dirname, 'client', 'build', 'index.html'));
+  });
+}
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+///python ki baari 
+

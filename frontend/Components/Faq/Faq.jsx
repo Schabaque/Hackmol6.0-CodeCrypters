@@ -38,8 +38,8 @@ export default function FAQ() {
 
         <div className="max-w-3xl mx-auto">
           <FaqItem
-            question="What is EtherTrade?"
-            answer="EtherTrade is a platform for fast, secure Ethereum transactions, trading, and portfolio management. We provide tools for both beginners and advanced users to manage their crypto assets."
+            question="What is EthAnnex?"
+            answer="EthAnnex is a platform for fast, secure Ethereum transactions, trading, and portfolio management. We provide tools for both beginners and advanced users to manage their crypto assets."
           />
           <FaqItem
             question="How secure is the platform?"
@@ -47,7 +47,7 @@ export default function FAQ() {
           />
           <FaqItem
             question="What are the transaction fees?"
-            answer="Our platform charges a competitive 0.1% fee per transaction. We also optimize gas fees to ensure you're getting the best rates on the Ethereum network."
+            answer="Our platform charges a competitive 0.01% fee per transaction. We also optimize gas fees to ensure you're getting the best rates on the Ethereum network."
           />
           <FaqItem
             question="Which wallets are supported?"

@@ -2,13 +2,13 @@ import { EclipseIcon as Ethereum } from "lucide-react"
 
 export default function Footer() {
   return (
-    <footer className="bg-teal-800 text-white py-12">
+    <footer className="bg-teal-900 text-white py-12">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
             <div className="flex items-center mb-4">
               <Ethereum className="h-8 w-8 mr-2" />
-              <span className="font-bold text-xl">EtherTrade</span>
+              <span className="font-bold text-xl">EthAnnex</span>
             </div>
             <p className="text-teal-200 mb-4">The future of Ethereum transactions.</p>
             <div className="flex space-x-4">
@@ -110,7 +110,7 @@ export default function Footer() {
         </div>
 
         <div className="border-t border-teal-600 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center">
-          <p className="text-teal-200">© {new Date().getFullYear()} EtherTrade. All rights reserved.</p>
+          <p className="text-teal-200">© {new Date().getFullYear()} EthAnnex. All rights reserved.</p>
           <div className="flex space-x-6 mt-4 md:mt-0">
             <a href="#" className="text-teal-200 hover:text-white">
               Privacy Policy

@@ -3,7 +3,7 @@ import Hero from '../Hero/Hero';
 import Stats from '../Stats/Stats';
 import Features from '../Features/Features';
 import Faq from '../Faq/Faq';
-
+import Timeline from '../FreshPrinceTimeline/FreshPrinceTimeline';
 const Home = () => {
   return (
     <div>
@@ -11,6 +11,8 @@ const Home = () => {
       <Stats />
       <Features />
       <Faq />
+      <Timeline />
+      {/* Add more components as needed */}
     </div>
   );
 };
