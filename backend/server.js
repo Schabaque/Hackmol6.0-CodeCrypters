@@ -6,7 +6,7 @@ const { Anthropic } = require('@anthropic-ai/sdk');
 const mongoose = require('mongoose');
 
 
-
+const port = 5000;
 const app = express();
 // Use CORS with specific origin instead of the default configuration
 app.use(cors({
@@ -230,3 +230,92 @@ app.listen(PORT, () => {
 });
 ///python ki baari 
 
+
+// MongoDB connection URL
+const dbURI = 'mongodb+srv://saanvichabaque:chabaque%40123@cluster0.piqojhx.mongodb.net/crypto_energy_db?retryWrites=true&w=majority&appName=Cluster0';
+
+
+// Connect to MongoDB
+mongoose.connect(dbURI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log('MongoDB connected'))
+  .catch(err => console.log(err));
+
+// Create a schema for your data
+const ethSignalSchema = new mongoose.Schema({
+  model: String,
+  last_trained: Date,
+  test_signals: [String],
+  future_signals: [String],
+  recommendation: String,
+  confidence: Number,
+});
+
+const EthSignal = mongoose.model('EthSignal', ethSignalSchema, 'eth_signals');
+
+const gasPredictionSchema = new mongoose.Schema({
+  model: String,
+  last_trained: Date,
+  test_predictions: [[Number]],      // <- Double array
+  future_predictions: [[Number]],    // <- Double array
+  metrics: {
+    avg_future_price: Number,
+    trend: String,
+    trend_magnitude: Number
+  }
+}, { collection: 'gas_predictions' });
+
+
+const GasPrediction = mongoose.model('GasPrediction', gasPredictionSchema);
+
+// Trend logic
+function calculateTrend(prices) {
+  if (prices.length < 2) return 'FLAT';
+
+  const diffs = prices.slice(1).map((v, i) => v - prices[i]);
+  const avgDiff = diffs.reduce((a, b) => a + b, 0) / diffs.length;
+
+  if (avgDiff > 0.5) return 'UP';
+  if (avgDiff < -0.5) return 'DOWN';
+  return 'FLAT';
+}
+
+// API route
+app.get('/api/gas-metrics', async (req, res) => {
+  try {
+    const latest = await GasPrediction.findOne().sort({ last_trained: -1 });
+
+    if (!latest || !latest.metrics) {
+      return res.status(404).json({ message: 'No metrics available' });
+    }
+
+    res.json({
+      average_future_price: latest.metrics.avg_future_price,
+      trend: latest.metrics.trend,
+      trend_magnitude: latest.metrics.trend_magnitude
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err });
+  }
+});
+
+// API endpoint to get recommendation and confidence
+app.get('/api/eth-signal', async (req, res) => {
+  try {
+    const ethSignal = await EthSignal.findOne(); // Fetch the first document
+    if (ethSignal) {
+      res.json({
+        recommendation: ethSignal.recommendation,
+        confidence: ethSignal.confidence,
+      });
+    } else {
+      res.status(404).json({ message: 'No data found' });
+    }
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err });
+  }
+});
+
+// Start the server
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});

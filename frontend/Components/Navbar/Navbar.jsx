@@ -26,6 +26,7 @@ export default function Navbar() {
               <a href="#features" className="hover:text-white transition-colors">Features</a>
               <a href="#faq" className="hover:text-white transition-colors">FAQs</a>
               <a href="#freshprincetimeline" className="hover:text-white transition-colors">Begin Journey</a>
+              <a href="/Gas" className="hover:text-white transition-colors">Gas Prices</a>
             </nav>
             {/* Wallet Connect Button */}
             <div className="hidden md:flex items-center space-x-4">
